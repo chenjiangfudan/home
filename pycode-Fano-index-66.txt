@@ -1,0 +1,255 @@
+from math import gcd
+from math import sqrt
+from math import ceil
+from sympy import isprime
+from sympy import factorint
+from itertools import product
+from fractions import Fraction
+from collections import defaultdict
+ranges=24
+iters=16
+target_sum=24
+bound=66
+
+def construct_seqs(r, iters):
+    seqs = []
+    for i in range(iters):
+        seqs.append(range(1, r+1))
+    return seqs
+
+def generator(target_val, *seqs):
+    """
+    generate a basket
+    @param target_val:
+    @param seqs:
+    @return:
+    """
+    def inner(i):
+        if i == n:
+            yield tuple(result)
+            return
+        if i > 0:
+            former = result[i-1]
+            for element in seqs[i][former-1:]:
+                total = sum([x - 1/x for x in result[:i]]) + element - 1/element
+                if total > target_val + 0.1:
+                    break
+                result[i] = element
+                for t in inner(i+1):
+                    yield t
+        else:
+            for elt in seqs[i]:
+                result[i] = elt
+                for t in inner(i+1):
+                    yield t
+    n = len(seqs)
+    result = [0] * n
+    for t in inner(0):
+        yield t
+
+
+def genearte_r_b_pair(r_seq, *b_seqs):
+    """
+    generate a pair of r and b
+    @param r_seq:
+    @param b_seqs:
+    @return:
+    """
+    def inner(i):
+        if i == n:
+            yield tuple(result)
+            return
+        if i > 0:
+            former = result[i-1][1]
+            for element in b_seqs[i]:
+                result[i] = (r_seq[i], element)
+                for t in inner(i+1):
+                    yield t
+        else:
+            for elt in b_seqs[i]:
+                result[i] = (r_seq[i], elt)
+                for t in inner(i+1):
+                    yield t
+    n = len(b_seqs)
+    result = [(0, 0)] * n
+    for t in inner(0):
+        yield t
+
+def get_prime_list(num):
+    """
+    list the numbers prime to num in the range [1, num/2] 
+    @param num:
+    @return:
+    """
+    if num == 1:
+        return [1]
+    results = []
+    for i in range(1, int(num/2) + 1):
+        if gcd(i, num) == 1:
+            results.append(i)
+    return results
+
+def total_lcm(r_seq):
+    """
+    find the total l.c.m of  r_seq
+    @param r_seq:
+    @return:
+    """
+    numbs = 1
+    for r in r_seq:
+        numbs = int(numbs*r/gcd(numbs,r))
+    return numbs             
+
+def r_p_n(prime_p, number_p):
+    """
+    If prime_p | (number_p+2) is true, return 1, else 0
+    @param r_seq:
+    @return:
+    """
+    if (number_p+2) % prime_p==0:
+        return 1
+    else:
+        return 0
+
+def custom_prime_expr(pj, lengt):
+    """
+    @param pj:
+    @param lengt:
+    @return: result=4RHS of (6.2), coef_seq=sequence of LB
+    """
+    factors = factorint(pj)                          # return {p1: a1, p2: a2, ...} where pj=p1^a1*p2^a2...                               
+    result = 0
+    coef_seq=[]
+    for prime, exp in factors.items():
+        coefficient=1
+        if prime**exp >= 3:
+            if lengt[0]>0:                                               #lengt[0]=n_23
+                coefficient=coefficient*23
+            if lengt[1]>0:                                               #lengt[1]=n_19
+                coefficient=coefficient*19
+            if lengt[2]>0:                                               #lengt[2]=n_17
+                coefficient=coefficient*17
+            if lengt[3]>0:                                               #lengt[3]=n_13
+                coefficient=coefficient*13
+            if lengt[4]>0 and prime**exp >= lengt[4]+2:                  #lengt[4]=n_11
+                coefficient=coefficient*11
+            if lengt[5]>0 and prime**exp >= lengt[5]+2:                  #lengt[5]=n_7
+                coefficient=coefficient*7
+            if lengt[6]>0 and prime**exp >= lengt[6]+2+r_p_n(5,lengt[6]):   #lengt[6]=n_5
+                coefficient=coefficient*5
+
+            #lengt[7]=n_3 and lengt[8]=n_9 
+            if lengt[8]>0 and prime**exp >= 4:                                           # Algorithm 5.8 (2)     
+                if prime**exp >= lengt[7]+2+r_p_n(3,lengt[7]):              
+                    coefficient=coefficient*9
+                else:
+                    coefficient=coefficient*3
+            if lengt[8]==0 and lengt[7]>0 and prime**exp >= lengt[7]+2+r_p_n(3,lengt[7]):  
+                coefficient=coefficient*3
+
+            #lengt[9]=n_2, lengt[10]=n_4, lengt[11]=n_8 and lengt[12]=n_16 
+            if lengt[12]==1 and lengt[11]>0:                                             # Algorithm 5.8 (3)(a)
+                coefficient=coefficient*2                
+            if lengt[12]==1 and lengt[11]==0 and lengt[10]>0:  
+                coefficient=coefficient*4
+            if lengt[12]==1 and lengt[11]==0 and lengt[10]==0:  
+                coefficient=coefficient*8
+
+            if lengt[11]==2 and lengt[10]>0:                                             # Algorithm 5.8 (3)(b)
+                coefficient=coefficient*2
+            if lengt[11]==2 and lengt[10]==0 and lengt[9]>0:
+                coefficient=coefficient*4
+            if lengt[11]==2 and lengt[10]==0 and lengt[9]==0:
+                coefficient=coefficient*8
+
+            if lengt[12]==0 and lengt[11]<2 and lengt[11]+lengt[10]>0 and prime**exp>=lengt[10]+3-(lengt[10])%2: # Algorithm 5.8 (3)(c)
+                coefficient=coefficient*2*(2**lengt[11])               
+                if lengt[10]<2 and prime**exp>=lengt[9]+lengt[11]+3-(lengt[9]+lengt[11])%2:
+                    coefficient=coefficient*2   
+                if lengt[10]==2 and lengt[13]==2 and prime**exp>=(lengt[9]+lengt[11]+2)+3-(lengt[9]+lengt[11]+2)%2:  #lengt[13]=2 means {4,4}\subset \mathcal R_X
+                    coefficient=coefficient*2  
+                if lengt[10]==3 and lengt[13]==3 and lengt[9]==0 and lengt[11]==0 and prime**exp>=5:  #lengt[13]=3 means {4,4,4}\subset \mathcal R_X
+                    coefficient=coefficient*2 
+            
+            if lengt[12]==0 and lengt[11]==0 and lengt[10]==2 and 4>=prime**exp>=3:      # Algorithm 5.8 (3)(d)
+                coefficient=coefficient*2
+
+            if lengt[12]==0 and lengt[11]==0 and lengt[10]==0:                           # Algorithm 5.8 (3)(e)
+                    if 0<lengt[9]<3:
+                        coefficient=coefficient*2 
+                    if lengt[9]>=3 and prime**exp>=lengt[9]+3-(lengt[9])%2:
+                        coefficient=coefficient*2
+
+        term =4*coefficient*( prime**exp - 1/(prime**exp))     
+        coef_seq.append(coefficient)                            # coef_seq=[coefficient], coefficient=LB
+        result += term                                          # result=4\sum (p_i^a_i-1/p_i^a_i)LB(p_i^a_i)
+    return result, coef_seq              
+
+def sub_sequence(r_seq, prime_p, exp):
+    """
+    find the subsequence [a_1, a_2, ...] in \mathcal R_X where \nu_prime_p(a_i)=exp
+    @param r_seq: \mathcal R_X
+    @param prime_p: target prime number
+    """
+    resultseq=[c for c in r_seq if c% (prime_p**exp)==0 and c% (prime_p**(exp+1))!=0]
+    if not resultseq:
+        return []
+    else:
+        return resultseq
+
+def same_sequence(r_seq, number_p):
+    """
+    find the subsequence [number_p,number_p,number_p...] in \mathcal R_X
+    @param r_seq: \mathcal R_X
+    @param number_p: target number
+    @return: [number_p,number_p,number_p...]
+    """
+    resultseq=[c for c in r_seq if c==number_p]
+    if not resultseq:
+        return []
+    else:
+        return resultseq
+
+def len_sub_sequence(r_seq):
+    """
+    A collection of (n_23, n_19, n_17, n_13, n_11, n_7, n_5, n_3, n_9, n_2, n_4, n_8, n_16, number of 4 in R_X) 
+    """
+    return [len(sub_sequence(r_seq,23,1)), len(sub_sequence(r_seq,19,1)), len(sub_sequence(r_seq,17,1)), len(sub_sequence(r_seq,13,1)), len(sub_sequence(r_seq,11,1)), len(sub_sequence(r_seq,7,1)), len(sub_sequence(r_seq,5,1)), len(sub_sequence(r_seq,3,1)),len(sub_sequence(r_seq,3,2)),len(sub_sequence(r_seq,2,1)),len(sub_sequence(r_seq,2,2)),len(sub_sequence(r_seq,2,3)),len(sub_sequence(r_seq,2,4)),len(same_sequence(r_seq,4))]
+
+def test(r_seq, Gorindex, univbound, leng):
+    """
+    @param r_seq: \mathcal R_X
+    @param Gorindex: Gorenstein index of X  
+    @param univbound: 4rc2c1
+    @param leng: [n_23, n_19, n_17, n_13, n_11, n_7, n_5, n_3, n_9, n_2, n_4, n_8, n_16, number of 4 in R_X]
+    """
+    b_seq = []
+    for r in r_seq:
+        b_list = get_prime_list(r)
+        b_seq.append(b_list)
+    for bx in genearte_r_b_pair(r_seq, *b_seq):                        # bx=the Reid's basket B_X, where bx[y][0]=r, bx[y][1]=b
+        sum_k=0
+        for y in range(0, iters):
+            sum_k += (bx[y][0]-bx[y][1]) *bx[y][1]/(2*bx[y][0])        # calculate \sum (r-b)b/2r in (3.4)
+        for q in range(bound+1, round(univbound)+2):                   # q=q_Q, the bound from (6.1)
+            for J in range(1, q+1):                                    # J=J_A
+                if q % J !=0:                                          # J\mid q, Theorem 2.1
+                    continue
+                for coeff in range(1, round(univbound*J/(q*q))+2):     # coeff=J_Ar_Xc_1(X)^3/q_Q^2 by Theorem 2.1, the bound from (6.1)
+                    c13=q*q*coeff/(Gorindex*J)                         # calculate c13=c_1(X)^3 by Theorem 2.1
+                    testl2=c13/2+3-sum_k                               # calculate h^0(-K_X) by (3.4)
+                    diff1=custom_prime_expr(J, leng)[0]                # diff1=4RHS of (6.2)
+                    diff2=univbound-(q*q+2*q-4)*coeff/J                # diff2=4\nabla_X=4LHS of (6.2)
+                    if abs(round(testl2)-testl2)<= 0.0001 and 0<diff2-diff1:  # Algorithm 6.5 Step 2+3, rational-integer relation in (3.4) and (6.2)
+                        print(bx, q, Gorindex, Gorindex*c13, univbound/4, factorint(J),custom_prime_expr(J, leng)[1], ceil(25*diff2)/100,(diff2-diff1)/4,J) 
+    return False
+
+
+seqs = construct_seqs(ranges, iters)
+for s in generator(target_sum, *seqs):                                 # s=\mathcal{R}_X
+    c2c1 = 24-sum([x -1/x for x in s])                                 # c2c1=c_2(X)c_1(X)
+    Gorindex = total_lcm(s)                                            # Gorindex=Gorenstein index of X
+    if  4*Gorindex*c2c1 >bound:                                        # Algorithm 6.5 Step 1, bound is 66
+        test_result = test(s, Gorindex, 4*Gorindex*c2c1,len_sub_sequence(s))
+        if not test_result:
+            continue
